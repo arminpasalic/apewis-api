@@ -34,12 +34,20 @@ st.set_page_config(layout="wide")
 # Initialize API client
 api = ApeWisdomAPI()
 
-# Fetch stock mentions data
+# Title and filter selection
 st.title('Stock Mentions Dashboard')
+filter_options = [
+    "all", "all-stocks", "all-crypto", "4chan", "CryptoCurrency", 
+    "CryptoCurrencies", "Bitcoin", "SatoshiStreetBets", "CryptoMoonShots",
+    "CryptoMarkets", "stocks", "wallstreetbets", "options", 
+    "WallStreetbetsELITE", "Wallstreetbetsnew", "SPACs", "investing", 
+    "Daytrading"
+]
+selected_filter = st.sidebar.selectbox("Select a filter", filter_options, index=1)
 
 try:
-    # Fetch stock mentions data
-    data = api.get_mentions()
+    # Fetch stock mentions data based on selected filter
+    data = api.get_mentions(filter_type=selected_filter)
     
     # Create DataFrame from API results
     df = pd.DataFrame(data['results'])
