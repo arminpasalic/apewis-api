@@ -23,22 +23,24 @@ class DataCollector:
         self.thread.start()
     
     def _run(self):
-        while True:
-            try:
-                self.next_update = datetime.now().timestamp() + self.interval
-                data = self.api.get_mentions("all-stocks", page=1)
-                
-                # Clear old data explicitly
-                old_data = None
-                with self.lock:
-                    self.latest_data = data
-                    self.last_update = datetime.now()
-                    # Force garbage collection if needed
-                    import gc
-                    gc.collect()
-                    
-                print(f"Data updated at {self.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
-                time.sleep(self.interval)
+       while True:
+           try:
+               self.next_update = datetime.now().timestamp() + self.interval
+               print("Attempting to fetch data...")  # Added debug line
+               data = self.api.get_mentions("all-stocks", page=1)
+               print(f"Data received: {data}")  # Added debug line
+               
+               # Clear old data explicitly
+               old_data = None
+               with self.lock:
+                   self.latest_data = data
+                   self.last_update = datetime.now()
+                   # Force garbage collection if needed
+                   import gc
+                   gc.collect()
+                   
+               print(f"Data updated at {self.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+               time.sleep(self.interval)
                 
             except Exception as e:
                 print(f"Error occurred: {e}")
