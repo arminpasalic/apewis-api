@@ -12,6 +12,29 @@ SCATTER_PALETTE = ['#FF9F1C', '#2EC4B6', '#E71D36', '#011627', '#FDFFFC', '#2357
 CHANGE_PALETTE = ['#4CB944', '#F4AC45', '#9B4DCA', '#22AED1', '#F98866', '#2AB7CA', '#FE4A49', '#00A878', '#FF6B6B', '#4ECDC4']
 UPVOTES_PALETTE = ['#6C5B7B', '#C06C84', '#F67280', '#F8B195', '#355C7D', '#725A7A', '#A7226E', '#EC2049', '#F26B38', '#2F9599']
 
+class ApeWisdomAPI:
+    """API client for ApeWisdom"""
+    BASE_URL = "https://apewisdom.io/api/v1.0"
+    
+    def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
+        """
+        Fetch stock mentions data from the API
+        
+        Args:
+            filter_type: Type of stocks to filter (e.g., "all-stocks")
+            page: Page number for pagination
+            
+        Returns:
+            Dictionary containing the API response
+        """
+        url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            raise Exception(f"API request failed: {str(e)}")
+
 def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = None, color_palette=None):
     """Create a styled bar chart with custom colors"""
     fig = px.bar(
@@ -138,107 +161,124 @@ def create_scatter_plot(df: pd.DataFrame, x: str, y: str, text: str, title: str,
     
     return fig
 
-# Configure the Streamlit page with transparent background
-st.set_page_config(layout="wide", page_title="Stock Mentions Dashboard")
+def main():
+    # Configure the Streamlit page with transparent background
+    st.set_page_config(layout="wide", page_title="Stock Mentions Dashboard")
 
-# Custom CSS for better text styling and transparent background
-st.markdown("""
-    <style>
-        .stApp {
-            background: transparent;
-        }
-        .title {
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 30px;
-        }
-        .subtitle {
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 16px;
-            color: #666;
-            font-style: italic;
-        }
-        div[data-testid="stVerticalBlock"] {
-            background: transparent;
-        }
-    </style>
-""", unsafe_allow_html=True)
+    # Custom CSS for better text styling and transparent background
+    st.markdown("""
+        <style>
+            .stApp {
+                background: transparent;
+            }
+            .title {
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 36px;
+                font-weight: bold;
+                margin-bottom: 30px;
+                color: #1E1E1E;
+            }
+            .subtitle {
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 16px;
+                color: #666;
+                font-style: italic;
+            }
+            div[data-testid="stVerticalBlock"] {
+                background: transparent;
+            }
+            .stSelectbox label {
+                font-family: Arial, Helvetica, sans-serif;
+                color: #1E1E1E;
+            }
+            .stSelectbox div[data-baseweb="select"] {
+                font-family: Arial, Helvetica, sans-serif;
+            }
+            div.stAlert > div {
+                padding: 1rem;
+                border-radius: 0.5rem;
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-# Initialize API client
-api = ApeWisdomAPI()
+    # Initialize API client
+    api = ApeWisdomAPI()
 
-# Title with custom styling
-st.markdown('<p class="title">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
+    # Title with custom styling
+    st.markdown('<p class="title">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
 
-# Filter selection
-filter_options = [
-    "all", "all-stocks", "all-crypto", "4chan", "CryptoCurrency", 
-    "CryptoCurrencies", "Bitcoin", "SatoshiStreetBets", "CryptoMoonShots",
-    "CryptoMarkets", "stocks", "wallstreetbets", "options", 
-    "WallStreetbetsELITE", "Wallstreetbetsnew", "SPACs", "investing", 
-    "Daytrading"
-]
-selected_filter = st.sidebar.selectbox("Select a filter", filter_options, index=1)
+    # Filter selection
+    filter_options = [
+        "all", "all-stocks", "all-crypto", "4chan", "CryptoCurrency", 
+        "CryptoCurrencies", "Bitcoin", "SatoshiStreetBets", "CryptoMoonShots",
+        "CryptoMarkets", "stocks", "wallstreetbets", "options", 
+        "WallStreetbetsELITE", "Wallstreetbetsnew", "SPACs", "investing", 
+        "Daytrading"
+    ]
+    selected_filter = st.sidebar.selectbox("Select a filter", filter_options, index=1)
 
-try:
-    # Fetch stock mentions data
-    data = api.get_mentions(filter_type=selected_filter)
-    df = pd.DataFrame(data['results'])
-    
-    # Display last updated time
-    last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.markdown(f'<p class="subtitle">Last Updated: {last_updated}</p>', unsafe_allow_html=True)
-    
-    # Create column layout
-    col1, col2 = st.columns(2)
-    
-    # Top mentions bar chart with custom colors
-    with col1:
-        fig1 = create_bar_chart(
+    try:
+        # Fetch stock mentions data
+        data = api.get_mentions(filter_type=selected_filter)
+        df = pd.DataFrame(data['results'])
+        
+        # Display last updated time
+        last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.markdown(f'<p class="subtitle">Last Updated: {last_updated}</p>', unsafe_allow_html=True)
+        
+        # Create column layout
+        col1, col2 = st.columns(2)
+        
+        # Top mentions bar chart with custom colors
+        with col1:
+            fig1 = create_bar_chart(
+                df.head(10),
+                x='name',
+                y='mentions',
+                text='ticker',
+                title='Top 10 Most Mentioned Stocks',
+                color_palette=MENTIONS_PALETTE
+            )
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        # Mentions vs Upvotes scatter plot with custom colors
+        with col2:
+            fig2 = create_scatter_plot(
+                df.head(20),
+                x='mentions',
+                y='upvotes',
+                text='ticker',
+                title='Mentions vs Upvotes (Top 20 Stocks)',
+                color_palette=SCATTER_PALETTE
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        # 24h Change in Mentions bar chart with custom colors
+        df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
+        fig3 = create_bar_chart(
             df.head(10),
             x='name',
-            y='mentions',
+            y='mention_change',
             text='ticker',
-            title='Top 10 Most Mentioned Stocks',
-            color_palette=MENTIONS_PALETTE
+            title='24h Change in Mentions (Top 10 Stocks)',
+            color_palette=CHANGE_PALETTE
         )
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    # Mentions vs Upvotes scatter plot with custom colors
-    with col2:
-        fig2 = create_scatter_plot(
-            df.head(20),
-            x='mentions',
+        st.plotly_chart(fig3, use_container_width=True)
+        
+        # Top Upvotes bar chart with custom colors
+        fig4 = create_bar_chart(
+            df.head(10).sort_values('upvotes', ascending=False),
+            x='name',
             y='upvotes',
             text='ticker',
-            title='Mentions vs Upvotes (Top 20 Stocks)',
-            color_palette=SCATTER_PALETTE
+            title='Top 10 Most Upvoted Stocks',
+            color_palette=UPVOTES_PALETTE
         )
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # 24h Change in Mentions bar chart with custom colors
-    df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
-    fig3 = create_bar_chart(
-        df.head(10),
-        x='name',
-        y='mention_change',
-        text='ticker',
-        title='24h Change in Mentions (Top 10 Stocks)',
-        color_palette=CHANGE_PALETTE
-    )
-    st.plotly_chart(fig3, use_container_width=True)
-    
-    # Top Upvotes bar chart with custom colors
-    fig4 = create_bar_chart(
-        df.head(10).sort_values('upvotes', ascending=False),
-        x='name',
-        y='upvotes',
-        text='ticker',
-        title='Top 10 Most Upvoted Stocks',
-        color_palette=UPVOTES_PALETTE
-    )
-    st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True)
 
-except Exception as e:
-    st.error(f"Error fetching stock mentions: {str(e)}")
+    except Exception as e:
+        st.error(f"Error fetching stock mentions: {str(e)}")
+
+if __name__ == "__main__":
+    main()
