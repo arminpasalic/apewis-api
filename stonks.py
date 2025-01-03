@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import requests
 from typing import Dict
 import pandas as pd
+import time
 
 class ApeWisdomAPI:
     BASE_URL = "https://apewisdom.io/api/v1.0"
