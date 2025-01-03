@@ -180,7 +180,7 @@ def main():
             .title {
                 font-family: Arial, Helvetica, sans-serif;
                 font-weight: bold;
-                font-size: 36px;
+                font-size: 88px;
                 margin-bottom: 30px;
                 color: #ffffff;
             }
