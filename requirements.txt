@@ -1,6 +1,5 @@
 # requirements.txt
-dash
+streamlit
 plotly
 pandas
 requests
-gunicorn
