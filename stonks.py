@@ -43,7 +43,7 @@ try:
     # Create DataFrame from API results
     df = pd.DataFrame(data['results'])
     
-    # Create two-column layout for first two visualizations
+    # Create column layout for visualizations
     col1, col2 = st.columns(2)
     
     # Top mentions bar chart
@@ -88,6 +88,19 @@ try:
         yaxis_title="Change in Mentions"
     )
     st.plotly_chart(fig3, use_container_width=True)
+
+    # Top Upvotes bar chart (NEW VISUALIZATION)
+    fig4 = px.bar(
+        df.head(10).sort_values('upvotes', ascending=False),
+        x='ticker',
+        y='upvotes',
+        title='Top 10 Most Upvoted Stocks'
+    )
+    fig4.update_layout(
+        xaxis_title="Stock Ticker",
+        yaxis_title="Number of Upvotes"
+    )
+    st.plotly_chart(fig4, use_container_width=True)
 
 except Exception as e:
     st.error(f"Error fetching stock mentions: {str(e)}")
