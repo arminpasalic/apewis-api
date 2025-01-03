@@ -3,12 +3,11 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 import plotly.graph_objects as go
-from apewis import ApeWisdomAPI
+from ape_wisdom import ApeWisdomAPI
 import pandas as pd
 import threading
 import time
 from datetime import datetime
-import json
 
 class DataCollector:
     def __init__(self, interval=300):
@@ -28,16 +27,15 @@ class DataCollector:
             try:
                 self.next_update = datetime.now().timestamp() + self.interval
                 data = self.api.get_mentions("all-stocks", page=1)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 
-                df = pd.DataFrame(data['results'])
-                df.to_csv(f'stock_data_{timestamp}.csv', index=False)
-                with open(f'raw_data_{timestamp}.json', 'w') as f:
-                    json.dump(data, f)
-                
+                # Clear old data explicitly
+                old_data = None
                 with self.lock:
                     self.latest_data = data
                     self.last_update = datetime.now()
+                    # Force garbage collection if needed
+                    import gc
+                    gc.collect()
                     
                 print(f"Data updated at {self.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
                 time.sleep(self.interval)
@@ -58,7 +56,6 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1('Stock Mentions Dashboard', style={'textAlign': 'center', 'marginBottom': '20px'}),
     
-    # Timer display
     html.Div([
         html.H4('Data Updates:', style={'marginBottom': '10px'}),
         html.Div([
@@ -77,7 +74,7 @@ app.layout = html.Div([
         dcc.Graph(id='change-chart'),
         dcc.Interval(
             id='interval-component',
-            interval=1000,  # update every second for countdown
+            interval=1000,
             n_intervals=0
         )
     ])
@@ -97,7 +94,6 @@ def update_graphs(n):
     if data is None:
         return dash.no_update, dash.no_update, dash.no_update, "Never", "Initializing..."
     
-    # Calculate countdown
     now = datetime.now().timestamp()
     seconds_left = int(next_update - now)
     countdown_text = f"{seconds_left // 60}m {seconds_left % 60}s"
