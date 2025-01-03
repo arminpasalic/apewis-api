@@ -140,5 +140,8 @@ def update_graphs(n):
     
     return mentions_fig, scatter_fig, change_fig, last_update_text, countdown_text
 
+# Add this at the bottom of your main app.py file
+server = app.server  # needed for deployment
+
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050)
+    app.run_server(debug=False, host='0.0.0.0')
