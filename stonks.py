@@ -12,6 +12,10 @@ SCATTER_PALETTE = ['#FF9F1C', '#2EC4B6', '#E71D36', '#011627', '#FDFFFC', '#2357
 CHANGE_PALETTE = ['#4CB944', '#F4AC45', '#9B4DCA', '#22AED1', '#F98866', '#2AB7CA', '#FE4A49', '#00A878', '#FF6B6B', '#4ECDC4']
 UPVOTES_PALETTE = ['#6C5B7B', '#C06C84', '#F67280', '#F8B195', '#355C7D', '#725A7A', '#A7226E', '#EC2049', '#F26B38', '#2F9599']
 
+# Colors for positive/negative changes
+POS_COLOR = '#4CB944'  # Green
+NEG_COLOR = '#FF4136'  # Red
+
 class ApeWisdomAPI:
     """API client for ApeWisdom"""
     BASE_URL = "https://apewisdom.io/api/v1.0"
@@ -35,7 +39,7 @@ class ApeWisdomAPI:
         except Exception as e:
             raise Exception(f"API request failed: {str(e)}")
 
-def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = None, color_palette=None):
+def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = None, color_palette=None, color_discrete_map=None):
     """Create a styled bar chart with custom colors"""
     fig = px.bar(
         df,
@@ -43,13 +47,15 @@ def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = N
         y=y,
         text=text,
         title=title,
-        color_discrete_sequence=color_palette
+        color=y if color_discrete_map else None,
+        color_discrete_sequence=color_palette,
+        color_discrete_map=color_discrete_map
     )
     
     # Update layout with professional styling and transparent background
     fig.update_layout(
         title={
-            'font_size': 16,
+            'font_size': 24,
             'font_family': "Arial, Helvetica, sans-serif",
             'y': 0.95,
             'x': 0.5,
@@ -173,7 +179,6 @@ def main():
             }
             .title {
                 font-family: Arial, Helvetica, sans-serif;
-                font-size: 16px;
                 font-weight: bold;
                 margin-bottom: 30px;
                 color: #ffffff;
@@ -189,7 +194,7 @@ def main():
             }
             .stSelectbox label {
                 font-family: Arial, Helvetica, sans-serif;
-                color: #1E1E1E;
+                color: #ffffff;
             }
             .stSelectbox div[data-baseweb="select"] {
                 font-family: Arial, Helvetica, sans-serif;
@@ -205,8 +210,11 @@ def main():
     # Initialize API client
     api = ApeWisdomAPI()
 
-    # Title with custom styling
-    st.markdown('<p class="title">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
+    # Title size selection in sidebar
+    title_size = st.sidebar.slider("Dashboard Title Size", min_value=24, max_value=48, value=36)
+    
+    # Title with custom styling and adjustable size
+    st.markdown(f'<p class="title" style="font-size: {title_size}px;">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
 
     # Filter selection
     filter_options = [
@@ -254,16 +262,65 @@ def main():
             )
             st.plotly_chart(fig2, use_container_width=True)
         
-        # 24h Change in Mentions bar chart with custom colors
+        # 24h Change in Mentions bar chart with conditional colors
         df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
-        fig3 = create_bar_chart(
-            df.head(10),
-            x='name',
-            y='mention_change',
-            text='ticker',
-            title='24h Change in Mentions (Top 10 Stocks)',
-            color_palette=CHANGE_PALETTE
+        df_change = df.head(10).copy()
+        
+        # Create color mapping for positive/negative values
+        colors = [POS_COLOR if x >= 0 else NEG_COLOR for x in df_change['mention_change']]
+        
+        # Create the figure using go.Figure for more control over colors
+        fig3 = go.Figure()
+        fig3.add_trace(go.Bar(
+            x=df_change['name'],
+            y=df_change['mention_change'],
+            text=df_change['ticker'],
+            marker_color=colors,
+            textposition='outside'
+        ))
+        
+        # Update layout for consistent styling
+        fig3.update_layout(
+            title={
+                'text': '24h Change in Mentions (Top 10 Stocks)',
+                'font_size': 24,
+                'font_family': "Arial, Helvetica, sans-serif",
+                'y': 0.95,
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
+            font=dict(
+                family="Arial, Helvetica, sans-serif",
+                size=12
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            height=500,
+            margin=dict(t=100, b=100, l=100, r=50),
+            showlegend=False
         )
+        
+        # Update axes
+        fig3.update_xaxes(
+            title="Stock Name",
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128,128,128,0.2)',
+            showline=True,
+            linewidth=1,
+            linecolor='rgba(128,128,128,0.2)'
+        )
+        fig3.update_yaxes(
+            title="Change in Mentions",
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(128,128,128,0.2)',
+            showline=True,
+            linewidth=1,
+            linecolor='rgba(128,128,128,0.2)'
+        )
+        
         st.plotly_chart(fig3, use_container_width=True)
         
         # Top Upvotes bar chart with custom colors
