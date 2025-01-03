@@ -31,13 +31,14 @@ class ApeWisdomAPI:
         except Exception as e:
             raise Exception(f"API request failed: {str(e)}")
 
-# Initialize session state variables
-if 'countdown' not in st.session_state:
+# Initialize session state variables and fetch initial data
+if 'initialized' not in st.session_state:
+    # First run - set up everything fresh
+    st.session_state.initialized = True
     st.session_state.countdown = 300  # 5 minutes in seconds
-if 'api' not in st.session_state:
     st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
-if 'data' not in st.session_state:
-    st.session_state.data = None
+    # Fetch initial data immediately
+    st.session_state.data = st.session_state.api.get_mentions()
 
 async def countdown_timer():
     """Simple async timer that counts down from 5 minutes"""
