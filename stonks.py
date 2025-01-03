@@ -173,7 +173,7 @@ def main():
             }
             .title {
                 font-family: Arial, Helvetica, sans-serif;
-                font-size: 36px;
+                font-size: 82px;
                 font-weight: bold;
                 margin-bottom: 30px;
                 color: #ffffff;
