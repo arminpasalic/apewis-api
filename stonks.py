@@ -3,6 +3,7 @@ import plotly.express as px
 import requests
 from typing import Dict
 import pandas as pd
+from datetime import datetime
 
 class ApeWisdomAPI:
     # The base URL for the API endpoints
@@ -42,6 +43,12 @@ try:
     
     # Create DataFrame from API results
     df = pd.DataFrame(data['results'])
+    
+    # Get current timestamp
+    last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Display last updated time
+    st.markdown(f"*Last Updated: {last_updated}*", unsafe_allow_html=True)
     
     # Create column layout for visualizations
     col1, col2 = st.columns(2)
