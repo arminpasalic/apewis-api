@@ -57,12 +57,14 @@ try:
     with col1:
         fig1 = px.bar(
             df.head(10),
-            x='ticker',
+            x='name',  # Changed from 'ticker' to 'name'
             y='mentions',
+            text='ticker',  # Added ticker as text
             title='Top 10 Most Mentioned Stocks'
         )
+        fig1.update_traces(textposition='outside')  # Show ticker on top of bars
         fig1.update_layout(
-            xaxis_title="Stock Ticker",
+            xaxis_title="Stock Name",
             yaxis_title="Number of Mentions"
         )
         st.plotly_chart(fig1, use_container_width=True)
@@ -73,7 +75,8 @@ try:
             df.head(20),
             x='mentions',
             y='upvotes',
-            text='ticker',
+            text='name',  # Changed to show full company name
+            hover_data=['ticker'],  # Add ticker to hover information
             title='Mentions vs Upvotes (Top 20 Stocks)'
         )
         fig2.update_layout(
@@ -86,25 +89,29 @@ try:
     df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
     fig3 = px.bar(
         df.head(10),
-        x='ticker',
+        x='name',  # Changed from 'ticker' to 'name'
         y='mention_change',
+        text='ticker',  # Added ticker as text
         title='24h Change in Mentions (Top 10 Stocks)'
     )
+    fig3.update_traces(textposition='outside')  # Show ticker on top of bars
     fig3.update_layout(
-        xaxis_title="Stock Ticker",
+        xaxis_title="Stock Name",
         yaxis_title="Change in Mentions"
     )
     st.plotly_chart(fig3, use_container_width=True)
 
-    # Top Upvotes bar chart (NEW VISUALIZATION)
+    # Top Upvotes bar chart
     fig4 = px.bar(
         df.head(10).sort_values('upvotes', ascending=False),
-        x='ticker',
+        x='name',  # Changed from 'ticker' to 'name'
         y='upvotes',
+        text='ticker',  # Added ticker as text
         title='Top 10 Most Upvoted Stocks'
     )
+    fig4.update_traces(textposition='outside')  # Show ticker on top of bars
     fig4.update_layout(
-        xaxis_title="Stock Ticker",
+        xaxis_title="Stock Name",
         yaxis_title="Number of Upvotes"
     )
     st.plotly_chart(fig4, use_container_width=True)
