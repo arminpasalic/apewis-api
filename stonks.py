@@ -109,4 +109,4 @@ if data:
     ), use_container_width=True)
 
 time.sleep(1)
-st.experimental_rerun()
+st.rerun()
