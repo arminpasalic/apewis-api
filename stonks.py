@@ -5,68 +5,100 @@ import requests
 from typing import Dict
 import pandas as pd
 import time
+import asyncio
+import aiohttp
+from asyncio import create_task
 
-class ApeWisdomAPI:
-    """Handles API interactions with ApeWisdom"""
+class AsyncApeWisdomAPI:
+    """Asynchronous version of the ApeWisdom API client"""
     BASE_URL = "https://apewisdom.io/api/v1.0"
     
     def __init__(self, rate_limit: float = 1.0):
         self.rate_limit = rate_limit
         self.last_request_time = 0
-        
-    def _rate_limit_wait(self):
-        """Implements rate limiting for API calls"""
+        self.session = None
+    
+    async def _init_session(self):
+        """Initialize aiohttp session if not already created"""
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
+    
+    async def _rate_limit_wait(self):
+        """Asynchronous rate limiting implementation"""
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
         if time_since_last < self.rate_limit:
-            time.sleep(self.rate_limit - time_since_last)
+            await asyncio.sleep(self.rate_limit - time_since_last)
         self.last_request_time = time.time()
+    
+    async def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
+        """Asynchronously fetch mentions data from the API"""
+        await self._init_session()
+        await self._rate_limit_wait()
         
-    def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
-        """Fetches mention data from the API"""
-        self._rate_limit_wait()
         url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            return response.json()
+            async with self.session.get(url) as response:
+                response.raise_for_status()
+                return await response.json()
         except Exception as e:
             raise Exception(f"API request failed: {str(e)}")
+    
+    async def close(self):
+        """Close the aiohttp session"""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+class AsyncDataManager:
+    """Manages asynchronous data updates and timing"""
+    def __init__(self, update_interval: int = 300):
+        self.update_interval = update_interval
+        self.api = AsyncApeWisdomAPI(rate_limit=1.0)
+        self.last_update = None
+        self.current_data = None
+        self.is_running = False
+        self.update_task = None
+    
+    async def _update_data(self):
+        """Internal method to fetch new data"""
+        try:
+            data = await self.api.get_mentions()
+            self.current_data = data
+            self.last_update = datetime.now()
+            st.session_state.current_data = data
+            st.session_state.last_update = self.last_update
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error updating data: {str(e)}")
+    
+    async def start_update_loop(self):
+        """Main update loop that runs continuously"""
+        self.is_running = True
+        while self.is_running:
+            await self._update_data()
+            # Wait for the next update interval
+            await asyncio.sleep(self.update_interval)
+    
+    def stop(self):
+        """Stop the update loop"""
+        self.is_running = False
+        if self.update_task:
+            self.update_task.cancel()
 
 def initialize_session_state():
-    """Sets up initial session state variables"""
-    if 'api' not in st.session_state:
-        st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
-    if 'last_update' not in st.session_state:
-        st.session_state.last_update = None
+    """Initialize all necessary session state variables"""
+    if 'data_manager' not in st.session_state:
+        st.session_state.data_manager = AsyncDataManager()
     if 'current_data' not in st.session_state:
         st.session_state.current_data = None
-    if 'update_counter' not in st.session_state:
-        st.session_state.update_counter = 0
-
-def should_update() -> bool:
-    """Determines if it's time for a data update"""
-    if st.session_state.last_update is None:
-        return True
-    elapsed = datetime.now() - st.session_state.last_update
-    return elapsed.total_seconds() >= 300  # 5 minutes
-
-def update_data():
-    """Fetches new data if needed"""
-    try:
-        if should_update():
-            data = st.session_state.api.get_mentions()
-            st.session_state.current_data = data
-            st.session_state.last_update = datetime.now()
-            st.session_state.update_counter += 1
-            # Force a rerun only when new data is fetched
-            time.sleep(1)  # Small delay to ensure smooth transition
-            st.rerun()
-    except Exception as e:
-        st.error(f"Error updating data: {str(e)}")
+    if 'last_update' not in st.session_state:
+        st.session_state.last_update = None
+    if 'update_task' not in st.session_state:
+        st.session_state.update_task = None
 
 def create_visualizations(df: pd.DataFrame):
-    """Creates and displays all dashboard visualizations"""
+    """Create and display dashboard visualizations"""
     col1, col2 = st.columns(2)
     
     with col1:
@@ -76,7 +108,6 @@ def create_visualizations(df: pd.DataFrame):
             y='mentions',
             title='Top 10 Most Mentioned Stocks'
         )
-        fig1.update_layout(height=400)
         st.plotly_chart(fig1, use_container_width=True)
     
     with col2:
@@ -87,7 +118,6 @@ def create_visualizations(df: pd.DataFrame):
             text='ticker',
             title='Mentions vs Upvotes'
         )
-        fig2.update_layout(height=400)
         st.plotly_chart(fig2, use_container_width=True)
     
     df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
@@ -97,41 +127,39 @@ def create_visualizations(df: pd.DataFrame):
         y='mention_change',
         title='24h Change in Mentions'
     )
-    fig3.update_layout(height=400)
     st.plotly_chart(fig3, use_container_width=True)
 
 def display_timer():
-    """Shows countdown timer until next update"""
+    """Display countdown timer until next update"""
     if st.session_state.last_update:
         elapsed = datetime.now() - st.session_state.last_update
         time_left = max(300 - elapsed.total_seconds(), 0)
         minutes = int(time_left // 60)
         seconds = int(time_left % 60)
         
-        # Create a more visually appealing timer display
         st.markdown(
             f"""
             <div style='padding: 10px; border-radius: 5px; background-color: #f0f2f6; margin-bottom: 20px;'>
                 <h3 style='margin: 0; color: #0e1117; text-align: center;'>
                     Next update in: {minutes:02d}:{seconds:02d}
                 </h3>
-                <p style='margin: 5px 0 0 0; text-align: center; font-size: 0.8em; color: #666;'>
-                    Updates completed: {st.session_state.update_counter}
-                </p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-def main():
-    """Main application function"""
+async def main():
+    """Main application function with async support"""
     st.set_page_config(layout="wide")
     initialize_session_state()
     
     st.title('Stock Mentions Dashboard')
     
-    # Update data check
-    update_data()
+    # Start the update loop if not already running
+    if st.session_state.update_task is None:
+        st.session_state.update_task = create_task(
+            st.session_state.data_manager.start_update_loop()
+        )
     
     # Display timer
     display_timer()
@@ -144,4 +172,4 @@ def main():
         st.info("Initializing dashboard... Please wait.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
