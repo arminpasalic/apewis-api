@@ -1,22 +1,9 @@
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
-from typing import Dict, List, Optional
-from dataclasses import dataclass
-
-@dataclass
-class StockMention:
-    rank: int
-    ticker: str
-    name: str
-    mentions: int
-    upvotes: int
-    rank_24h_ago: Optional[int]
-    mentions_24h_ago: Optional[int]
+from typing import Dict
+import pandas as pd
 
 class ApeWisdomAPI:
     BASE_URL = "https://apewisdom.io/api/v1.0"
@@ -46,40 +33,28 @@ st.set_page_config(layout="wide")
 
 if 'api' not in st.session_state:
     st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
+if 'data' not in st.session_state:
+    st.session_state.data = None
 if 'last_update' not in st.session_state:
-    st.session_state.last_update = None
-if 'next_update' not in st.session_state:
-    st.session_state.next_update = None
+    st.session_state.last_update = datetime.now() - timedelta(minutes=5)  # Force first update
 
 st.title('Stock Mentions Dashboard')
 
-def get_data():
+# Only update every 5 minutes
+if (datetime.now() - st.session_state.last_update) >= timedelta(minutes=5):
     try:
-        data = st.session_state.api.get_mentions()
+        st.session_state.data = st.session_state.api.get_mentions()
         st.session_state.last_update = datetime.now()
-        st.session_state.next_update = st.session_state.last_update.timestamp() + 300
-        return data
+        st.rerun()  # Refresh only after new data
     except Exception as e:
         st.error(f"Error: {str(e)}")
-        return None
 
-if st.session_state.last_update is None or (datetime.now().timestamp() - st.session_state.last_update.timestamp()) > 300:
-    data = get_data()
-else:
-    data = None
+# Display last update time
+st.write(f"Last updated: {st.session_state.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.session_state.last_update:
-        st.write(f"Last update: {st.session_state.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
-with col2:
-    if st.session_state.next_update:
-        seconds_left = int(st.session_state.next_update - datetime.now().timestamp())
-        if seconds_left > 0:
-            st.write(f"Next update in: {seconds_left // 60}m {seconds_left % 60}s")
-
-if data:
-    df = pd.DataFrame(data['results'])
+# Display data
+if st.session_state.data:
+    df = pd.DataFrame(st.session_state.data['results'])
     
     col1, col2 = st.columns(2)
     
@@ -107,6 +82,3 @@ if data:
         y='mention_change',
         title='24h Change in Mentions'
     ), use_container_width=True)
-
-time.sleep(1)
-st.rerun()
