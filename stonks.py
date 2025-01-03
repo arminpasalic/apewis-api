@@ -6,109 +6,103 @@ import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
 
-# Define a professional color palette
-COLOR_PALETTE = [
-    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-    '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-]
+# Define different color palettes for each visualization
+MENTIONS_PALETTE = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9AB87A', '#F3B562', '#F06060', '#8789C0']
+SCATTER_PALETTE = ['#FF9F1C', '#2EC4B6', '#E71D36', '#011627', '#FDFFFC', '#235789', '#C1292E', '#F1D302', '#020100', '#B8D4E3']
+CHANGE_PALETTE = ['#4CB944', '#F4AC45', '#9B4DCA', '#22AED1', '#F98866', '#2AB7CA', '#FE4A49', '#00A878', '#FF6B6B', '#4ECDC4']
+UPVOTES_PALETTE = ['#6C5B7B', '#C06C84', '#F67280', '#F8B195', '#355C7D', '#725A7A', '#A7226E', '#EC2049', '#F26B38', '#2F9599']
 
-# Define consistent chart styling
-CHART_STYLE = {
-    'font_family': "Arial, Helvetica, sans-serif",
-    'title_font_size': 24,
-    'axis_title_font_size': 14,
-    'tick_font_size': 12,
-    'legend_font_size': 12
-}
-
-class ApeWisdomAPI:
-    BASE_URL = "https://apewisdom.io/api/v1.0"
-    
-    def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
-        url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            raise Exception(f"API request failed: {str(e)}")
-
-def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = None):
-    """Create a styled bar chart"""
+def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = None, color_palette=None):
+    """Create a styled bar chart with custom colors"""
     fig = px.bar(
         df,
         x=x,
         y=y,
         text=text,
         title=title,
-        color_discrete_sequence=COLOR_PALETTE
+        color_discrete_sequence=color_palette
     )
     
-    # Update layout with professional styling
+    # Update layout with professional styling and transparent background
     fig.update_layout(
         title={
-            'font_size': CHART_STYLE['title_font_size'],
-            'font_family': CHART_STYLE['font_family'],
+            'font_size': 24,
+            'font_family': "Arial, Helvetica, sans-serif",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top'
         },
         font=dict(
-            family=CHART_STYLE['font_family'],
-            size=CHART_STYLE['tick_font_size']
+            family="Arial, Helvetica, sans-serif",
+            size=12
         ),
-        xaxis_title_font=dict(size=CHART_STYLE['axis_title_font_size']),
-        yaxis_title_font=dict(size=CHART_STYLE['axis_title_font_size']),
-        plot_bgcolor='white',
-        height=500,  # Fixed height for better proportions
-        margin=dict(t=100, b=100, l=100, r=50)  # Adequate margins for labels
+        xaxis_title_font=dict(size=14),
+        yaxis_title_font=dict(size=14),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        margin=dict(t=100, b=100, l=100, r=50)
     )
     
     # Update bar styling
     fig.update_traces(
         textposition='outside',
-        textfont=dict(size=12, family=CHART_STYLE['font_family']),
-        marker_line_color='rgb(8,48,107)',
+        textfont=dict(size=12, family="Arial, Helvetica, sans-serif"),
         marker_line_width=1.5,
-        opacity=0.8
+        opacity=0.85
     )
     
-    # Update axes
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
+    # Update axes with transparent background
+    fig.update_xaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='rgba(128,128,128,0.2)',
+        showline=True,
+        linewidth=1,
+        linecolor='rgba(128,128,128,0.2)'
+    )
+    fig.update_yaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='rgba(128,128,128,0.2)',
+        showline=True,
+        linewidth=1,
+        linecolor='rgba(128,128,128,0.2)'
+    )
     
     return fig
 
-def create_scatter_plot(df: pd.DataFrame, x: str, y: str, text: str, title: str):
-    """Create a styled scatter plot"""
+def create_scatter_plot(df: pd.DataFrame, x: str, y: str, text: str, title: str, color_palette=None):
+    """Create a styled scatter plot with custom colors"""
     fig = px.scatter(
         df,
         x=x,
         y=y,
         text=text,
         title=title,
-        color_discrete_sequence=COLOR_PALETTE,
+        color_discrete_sequence=color_palette,
         hover_data={'name': True, 'ticker': True}
     )
     
-    # Update layout with professional styling
+    # Update layout with professional styling and transparent background
     fig.update_layout(
         title={
-            'font_size': CHART_STYLE['title_font_size'],
-            'font_family': CHART_STYLE['font_family'],
+            'font_size': 24,
+            'font_family': "Arial, Helvetica, sans-serif",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
             'yanchor': 'top'
         },
         font=dict(
-            family=CHART_STYLE['font_family'],
-            size=CHART_STYLE['tick_font_size']
+            family="Arial, Helvetica, sans-serif",
+            size=12
         ),
-        xaxis_title_font=dict(size=CHART_STYLE['axis_title_font_size']),
-        yaxis_title_font=dict(size=CHART_STYLE['axis_title_font_size']),
-        plot_bgcolor='white',
+        xaxis_title_font=dict(size=14),
+        yaxis_title_font=dict(size=14),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
         height=500,
         margin=dict(t=100, b=100, l=100, r=50)
     )
@@ -117,25 +111,42 @@ def create_scatter_plot(df: pd.DataFrame, x: str, y: str, text: str, title: str)
     fig.update_traces(
         marker=dict(
             size=12,
-            line=dict(width=2, color='DarkSlateGrey'),
-            opacity=0.7
+            line=dict(width=2),
+            opacity=0.85
         ),
         textposition='top center',
-        textfont=dict(size=12, family=CHART_STYLE['font_family'])
+        textfont=dict(size=12, family="Arial, Helvetica, sans-serif")
     )
     
-    # Update axes
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)')
+    # Update axes with transparent background
+    fig.update_xaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='rgba(128,128,128,0.2)',
+        showline=True,
+        linewidth=1,
+        linecolor='rgba(128,128,128,0.2)'
+    )
+    fig.update_yaxes(
+        showgrid=True, 
+        gridwidth=1, 
+        gridcolor='rgba(128,128,128,0.2)',
+        showline=True,
+        linewidth=1,
+        linecolor='rgba(128,128,128,0.2)'
+    )
     
     return fig
 
-# Configure the Streamlit page
+# Configure the Streamlit page with transparent background
 st.set_page_config(layout="wide", page_title="Stock Mentions Dashboard")
 
-# Custom CSS for better text styling
+# Custom CSS for better text styling and transparent background
 st.markdown("""
     <style>
+        .stApp {
+            background: transparent;
+        }
         .title {
             font-family: Arial, Helvetica, sans-serif;
             font-size: 36px;
@@ -147,6 +158,9 @@ st.markdown("""
             font-size: 16px;
             color: #666;
             font-style: italic;
+        }
+        div[data-testid="stVerticalBlock"] {
+            background: transparent;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -179,46 +193,50 @@ try:
     # Create column layout
     col1, col2 = st.columns(2)
     
-    # Top mentions bar chart
+    # Top mentions bar chart with custom colors
     with col1:
         fig1 = create_bar_chart(
             df.head(10),
             x='name',
             y='mentions',
             text='ticker',
-            title='Top 10 Most Mentioned Stocks'
+            title='Top 10 Most Mentioned Stocks',
+            color_palette=MENTIONS_PALETTE
         )
         st.plotly_chart(fig1, use_container_width=True)
     
-    # Mentions vs Upvotes scatter plot
+    # Mentions vs Upvotes scatter plot with custom colors
     with col2:
         fig2 = create_scatter_plot(
             df.head(20),
             x='mentions',
             y='upvotes',
             text='ticker',
-            title='Mentions vs Upvotes (Top 20 Stocks)'
+            title='Mentions vs Upvotes (Top 20 Stocks)',
+            color_palette=SCATTER_PALETTE
         )
         st.plotly_chart(fig2, use_container_width=True)
     
-    # 24h Change in Mentions bar chart
+    # 24h Change in Mentions bar chart with custom colors
     df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
     fig3 = create_bar_chart(
         df.head(10),
         x='name',
         y='mention_change',
         text='ticker',
-        title='24h Change in Mentions (Top 10 Stocks)'
+        title='24h Change in Mentions (Top 10 Stocks)',
+        color_palette=CHANGE_PALETTE
     )
     st.plotly_chart(fig3, use_container_width=True)
     
-    # Top Upvotes bar chart
+    # Top Upvotes bar chart with custom colors
     fig4 = create_bar_chart(
         df.head(10).sort_values('upvotes', ascending=False),
         x='name',
         y='upvotes',
         text='ticker',
-        title='Top 10 Most Upvoted Stocks'
+        title='Top 10 Most Upvoted Stocks',
+        color_palette=UPVOTES_PALETTE
     )
     st.plotly_chart(fig4, use_container_width=True)
 
