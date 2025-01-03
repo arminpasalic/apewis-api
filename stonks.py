@@ -1,34 +1,12 @@
 import streamlit as st
 import plotly.express as px
-from datetime import datetime, timedelta
 import requests
 from typing import Dict
 import pandas as pd
-import time
 
 class ApeWisdomAPI:
     # The base URL for the API endpoints
     BASE_URL = "https://apewisdom.io/api/v1.0"
-    
-    def __init__(self, rate_limit: float = 1.0):
-        """
-        Initialize the API client with rate limiting
-        
-        Args:
-            rate_limit: Minimum time (in seconds) between API requests
-        """
-        self.rate_limit = rate_limit
-        self.last_request_time = 0
-    
-    def _rate_limit_wait(self):
-        """
-        Implements rate limiting by waiting if needed before making a new request
-        """
-        current_time = time.time()
-        time_since_last = current_time - self.last_request_time
-        if time_since_last < self.rate_limit:
-            time.sleep(self.rate_limit - time_since_last)
-        self.last_request_time = time.time()
     
     def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
         """
@@ -41,7 +19,6 @@ class ApeWisdomAPI:
         Returns:
             Dictionary containing the API response
         """
-        self._rate_limit_wait()
         url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
         try:
             response = requests.get(url)
@@ -53,37 +30,20 @@ class ApeWisdomAPI:
 # Configure the Streamlit page
 st.set_page_config(layout="wide")
 
-# Initialize session state for persistent data
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = datetime.now()
-    st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
-    st.session_state.data = None
+# Initialize API client
+api = ApeWisdomAPI()
 
+# Fetch stock mentions data
 st.title('Stock Mentions Dashboard')
 
-# Calculate time elapsed and update data if needed
-elapsed = datetime.now() - st.session_state.start_time
-UPDATE_INTERVAL = 300  # 5 minutes in seconds
-
-if elapsed.total_seconds() >= UPDATE_INTERVAL:
-    st.session_state.data = st.session_state.api.get_mentions()
-    st.session_state.start_time = datetime.now()
-
-# Display countdown timer
-time_left = UPDATE_INTERVAL - elapsed.total_seconds()
-if time_left > 0:
-    minutes = int(time_left // 60)
-    seconds = int(time_left % 60)
-    st.markdown(f"### Next update in: {minutes:02d}:{seconds:02d}")
-else:
-    st.markdown("### Updating...")
-
-# Display visualizations if data is available
-if st.session_state.data:
-    # Create DataFrame from API results
-    df = pd.DataFrame(st.session_state.data['results'])
+try:
+    # Fetch stock mentions data
+    data = api.get_mentions()
     
-    # Create two-column layout
+    # Create DataFrame from API results
+    df = pd.DataFrame(data['results'])
+    
+    # Create two-column layout for first two visualizations
     col1, col2 = st.columns(2)
     
     # Top mentions bar chart
@@ -128,3 +88,6 @@ if st.session_state.data:
         yaxis_title="Change in Mentions"
     )
     st.plotly_chart(fig3, use_container_width=True)
+
+except Exception as e:
+    st.error(f"Error fetching stock mentions: {str(e)}")
