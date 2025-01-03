@@ -5,11 +5,9 @@ import requests
 from typing import Dict
 import pandas as pd
 import time
-import threading
-from queue import Queue
-import schedule
 
 class ApeWisdomAPI:
+    """Handles API interactions with ApeWisdom"""
     BASE_URL = "https://apewisdom.io/api/v1.0"
     
     def __init__(self, rate_limit: float = 1.0):
@@ -17,6 +15,7 @@ class ApeWisdomAPI:
         self.last_request_time = 0
         
     def _rate_limit_wait(self):
+        """Implements rate limiting for API calls"""
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
         if time_since_last < self.rate_limit:
@@ -24,6 +23,7 @@ class ApeWisdomAPI:
         self.last_request_time = time.time()
         
     def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
+        """Fetches mention data from the API"""
         self._rate_limit_wait()
         url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
         try:
@@ -33,99 +33,115 @@ class ApeWisdomAPI:
         except Exception as e:
             raise Exception(f"API request failed: {str(e)}")
 
-class DataFetcher:
-    def __init__(self):
-        self.data_queue = Queue()
-        self.api = ApeWisdomAPI(rate_limit=1.0)
-        self.last_update = None
-        
-    def fetch_data(self):
-        """Fetch data in a separate thread"""
-        data = self.api.get_mentions()
-        self.data_queue.put(data)
-        self.last_update = datetime.now()
-        
-    def get_last_update(self):
-        return self.last_update
-
 def initialize_session_state():
-    """Initialize all session state variables"""
-    if 'data_fetcher' not in st.session_state:
-        st.session_state.data_fetcher = DataFetcher()
+    """Sets up initial session state variables"""
+    if 'api' not in st.session_state:
+        st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
     if 'last_update' not in st.session_state:
         st.session_state.last_update = None
     if 'current_data' not in st.session_state:
         st.session_state.current_data = None
+    if 'update_counter' not in st.session_state:
+        st.session_state.update_counter = 0
+
+def should_update() -> bool:
+    """Determines if it's time for a data update"""
+    if st.session_state.last_update is None:
+        return True
+    elapsed = datetime.now() - st.session_state.last_update
+    return elapsed.total_seconds() >= 300  # 5 minutes
 
 def update_data():
-    """Update data if 5 minutes have passed"""
-    if (st.session_state.last_update is None or 
-        (datetime.now() - st.session_state.last_update).total_seconds() >= 300):
-        
-        # Start data fetch in background
-        fetch_thread = threading.Thread(
-            target=st.session_state.data_fetcher.fetch_data
-        )
-        fetch_thread.start()
-        fetch_thread.join(timeout=0.1)  # Short timeout to prevent blocking
-        
-        # Check if new data is available
-        try:
-            while not st.session_state.data_fetcher.data_queue.empty():
-                st.session_state.current_data = st.session_state.data_fetcher.data_queue.get_nowait()
-                st.session_state.last_update = datetime.now()
-        except Exception as e:
-            st.error(f"Error updating data: {str(e)}")
+    """Fetches new data if needed"""
+    try:
+        if should_update():
+            data = st.session_state.api.get_mentions()
+            st.session_state.current_data = data
+            st.session_state.last_update = datetime.now()
+            st.session_state.update_counter += 1
+            # Force a rerun only when new data is fetched
+            time.sleep(1)  # Small delay to ensure smooth transition
+            st.experimental_rerun()
+    except Exception as e:
+        st.error(f"Error updating data: {str(e)}")
 
-def main():
-    st.set_page_config(layout="wide")
-    initialize_session_state()
+def create_visualizations(df: pd.DataFrame):
+    """Creates and displays all dashboard visualizations"""
+    col1, col2 = st.columns(2)
     
-    st.title('Stock Mentions Dashboard')
+    with col1:
+        fig1 = px.bar(
+            df.head(10),
+            x='ticker',
+            y='mentions',
+            title='Top 10 Most Mentioned Stocks'
+        )
+        fig1.update_layout(height=400)
+        st.plotly_chart(fig1, use_container_width=True)
     
-    # Update data if needed
-    update_data()
+    with col2:
+        fig2 = px.scatter(
+            df.head(20),
+            x='mentions',
+            y='upvotes',
+            text='ticker',
+            title='Mentions vs Upvotes'
+        )
+        fig2.update_layout(height=400)
+        st.plotly_chart(fig2, use_container_width=True)
     
-    # Display countdown
+    df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
+    fig3 = px.bar(
+        df.head(10),
+        x='ticker',
+        y='mention_change',
+        title='24h Change in Mentions'
+    )
+    fig3.update_layout(height=400)
+    st.plotly_chart(fig3, use_container_width=True)
+
+def display_timer():
+    """Shows countdown timer until next update"""
     if st.session_state.last_update:
         elapsed = datetime.now() - st.session_state.last_update
         time_left = max(300 - elapsed.total_seconds(), 0)
         minutes = int(time_left // 60)
         seconds = int(time_left % 60)
-        st.markdown(f"### Next update in: {minutes:02d}:{seconds:02d}")
         
-        if st.session_state.current_data:
-            df = pd.DataFrame(st.session_state.current_data['results'])
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.plotly_chart(px.bar(
-                    df.head(10),
-                    x='ticker',
-                    y='mentions',
-                    title='Top 10 Most Mentioned Stocks'
-                ), use_container_width=True)
-            
-            with col2:
-                st.plotly_chart(px.scatter(
-                    df.head(20),
-                    x='mentions',
-                    y='upvotes',
-                    text='ticker',
-                    title='Mentions vs Upvotes'
-                ), use_container_width=True)
-            
-            df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
-            st.plotly_chart(px.bar(
-                df.head(10),
-                x='ticker',
-                y='mention_change',
-                title='24h Change in Mentions'
-            ), use_container_width=True)
+        # Create a more visually appealing timer display
+        st.markdown(
+            f"""
+            <div style='padding: 10px; border-radius: 5px; background-color: #f0f2f6; margin-bottom: 20px;'>
+                <h3 style='margin: 0; color: #0e1117; text-align: center;'>
+                    Next update in: {minutes:02d}:{seconds:02d}
+                </h3>
+                <p style='margin: 5px 0 0 0; text-align: center; font-size: 0.8em; color: #666;'>
+                    Updates completed: {st.session_state.update_counter}
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+def main():
+    """Main application function"""
+    st.set_page_config(layout="wide")
+    initialize_session_state()
+    
+    st.title('Stock Mentions Dashboard')
+    
+    # Update data check
+    update_data()
+    
+    # Display timer
+    display_timer()
+    
+    # Display visualizations if data is available
+    if st.session_state.current_data:
+        df = pd.DataFrame(st.session_state.current_data['results'])
+        create_visualizations(df)
     else:
-        st.markdown("### Initializing data...")
-        update_data()
+        st.info("Initializing dashboard... Please wait.")
 
 if __name__ == "__main__":
     main()
