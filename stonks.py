@@ -27,31 +27,33 @@ class ApeWisdomAPI:
             response = requests.get(url)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             raise Exception(f"API request failed: {str(e)}")
 
 st.set_page_config(layout="wide")
 
-if 'api' not in st.session_state:
+# Initialize session state
+if 'start_time' not in st.session_state:
+    st.session_state.start_time = datetime.now()
     st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
-if 'data' not in st.session_state:
     st.session_state.data = None
-if 'last_update' not in st.session_state:
-    st.session_state.last_update = datetime.now() - timedelta(minutes=5)  # Force first update
 
 st.title('Stock Mentions Dashboard')
 
-# Only update every 5 minutes
-if (datetime.now() - st.session_state.last_update) >= timedelta(minutes=5):
-    try:
-        st.session_state.data = st.session_state.api.get_mentions()
-        st.session_state.last_update = datetime.now()
-        st.rerun()  # Refresh only after new data
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+# Calculate time elapsed and update data if needed
+elapsed = datetime.now() - st.session_state.start_time
+if elapsed.total_seconds() >= 300:  # 5 minutes
+    st.session_state.data = st.session_state.api.get_mentions()
+    st.session_state.start_time = datetime.now()
 
-# Display last update time
-st.write(f"Last updated: {st.session_state.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+# Display countdown
+time_left = 300 - elapsed.total_seconds()
+if time_left > 0:
+    minutes = int(time_left // 60)
+    seconds = int(time_left % 60)
+    st.markdown(f"### Next update in: {minutes:02d}:{seconds:02d}")
+else:
+    st.markdown("### Updating...")
 
 # Display data
 if st.session_state.data:
