@@ -75,10 +75,11 @@ try:
             df.head(20),
             x='mentions',
             y='upvotes',
-            text='name',  # Changed to show full company name
-            hover_data=['ticker'],  # Add ticker to hover information
+            text='ticker',  # Use only ticker for text
+            hover_data={'name': True, 'ticker': True},  # Include full name in hover
             title='Mentions vs Upvotes (Top 20 Stocks)'
         )
+        fig2.update_traces(textposition='top center')  # Position ticker text
         fig2.update_layout(
             xaxis_title="Number of Mentions",
             yaxis_title="Number of Upvotes"
