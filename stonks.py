@@ -176,7 +176,7 @@ def main():
                 font-size: 36px;
                 font-weight: bold;
                 margin-bottom: 30px;
-                color: #1E1E1E;
+                color: #ffffff;
             }
             .subtitle {
                 font-family: Arial, Helvetica, sans-serif;
