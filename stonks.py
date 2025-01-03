@@ -49,7 +49,7 @@ def create_bar_chart(df: pd.DataFrame, x: str, y: str, title: str, text: str = N
     # Update layout with professional styling and transparent background
     fig.update_layout(
         title={
-            'font_size': 24,
+            'font_size': 16,
             'font_family': "Arial, Helvetica, sans-serif",
             'y': 0.95,
             'x': 0.5,
