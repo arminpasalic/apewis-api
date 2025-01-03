@@ -3,7 +3,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 import plotly.graph_objects as go
-from ape_wisdom import ApeWisdomAPI
+from apewis import ApeWisdomAPI
 import pandas as pd
 import threading
 import time
