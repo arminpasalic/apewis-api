@@ -1,144 +1,112 @@
-import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from apewis import ApeWisdomAPI
 import pandas as pd
-import threading
 import time
 from datetime import datetime
+import requests
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 
-class DataCollector:
-   def __init__(self, interval=300):
-       self.interval = interval
-       self.latest_data = None
-       self.api = ApeWisdomAPI()
-       self.lock = threading.Lock()
-       self.last_update = None
-       self.next_update = None
-       
-   def start(self):
-       self.thread = threading.Thread(target=self._run, daemon=True)
-       self.thread.start()
-   
-   def _run(self):
-       while True:
-           try:
-               self.next_update = datetime.now().timestamp() + self.interval
-               print("Attempting to fetch data...")  
-               data = self.api.get_mentions("all-stocks", page=1)
-               print(f"Data received: {data}")  
-               
-               # Clear old data explicitly
-               old_data = None
-               with self.lock:
-                   self.latest_data = data
-                   self.last_update = datetime.now()
-                   # Force garbage collection if needed
-                   import gc
-                   gc.collect()
-                   
-               print(f"Data updated at {self.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
-               time.sleep(self.interval)
-               
-           except Exception as e:
-               print(f"Error occurred: {e}")
-               time.sleep(60)
-   
-   def get_latest_data(self):
-       with self.lock:
-           return self.latest_data, self.last_update, self.next_update
+@dataclass
+class StockMention:
+    rank: int
+    ticker: str
+    name: str
+    mentions: int
+    upvotes: int
+    rank_24h_ago: Optional[int]
+    mentions_24h_ago: Optional[int]
 
-collector = DataCollector()
-collector.start()
+class ApeWisdomAPI:
+    BASE_URL = "https://apewisdom.io/api/v1.0"
+    
+    def __init__(self, rate_limit: float = 1.0):
+        self.rate_limit = rate_limit
+        self.last_request_time = 0
+        
+    def _rate_limit_wait(self):
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.rate_limit:
+            time.sleep(self.rate_limit - time_since_last)
+        self.last_request_time = time.time()
+        
+    def get_mentions(self, filter_type: str = "all-stocks", page: int = 1) -> Dict:
+        self._rate_limit_wait()
+        url = f"{self.BASE_URL}/filter/{filter_type}/page/{page}"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"API request failed: {str(e)}")
 
-app = dash.Dash(__name__)
+st.set_page_config(layout="wide")
 
-app.layout = html.Div([
-   html.H1('Stock Mentions Dashboard', style={'textAlign': 'center', 'marginBottom': '20px'}),
-   
-   html.Div([
-       html.H4('Data Updates:', style={'marginBottom': '10px'}),
-       html.Div([
-           html.Span('Last update: ', style={'fontWeight': 'bold'}),
-           html.Span(id='last-update')
-       ]),
-       html.Div([
-           html.Span('Next update in: ', style={'fontWeight': 'bold'}),
-           html.Span(id='countdown')
-       ]),
-   ], style={'textAlign': 'center', 'marginBottom': '20px', 'padding': '10px', 'backgroundColor': '#f8f9fa', 'borderRadius': '5px'}),
-   
-   html.Div([
-       dcc.Graph(id='mentions-chart'),
-       dcc.Graph(id='scatter-plot'),
-       dcc.Graph(id='change-chart'),
-       dcc.Interval(
-           id='interval-component',
-           interval=1000,
-           n_intervals=0
-       )
-   ])
-])
+if 'api' not in st.session_state:
+    st.session_state.api = ApeWisdomAPI(rate_limit=1.0)
+if 'last_update' not in st.session_state:
+    st.session_state.last_update = None
+if 'next_update' not in st.session_state:
+    st.session_state.next_update = None
 
-@app.callback(
-   [Output('mentions-chart', 'figure'),
-    Output('scatter-plot', 'figure'),
-    Output('change-chart', 'figure'),
-    Output('last-update', 'children'),
-    Output('countdown', 'children')],
-   Input('interval-component', 'n_intervals')
-)
-def update_graphs(n):
-   data, last_update, next_update = collector.get_latest_data()
-   
-   if data is None:
-       return dash.no_update, dash.no_update, dash.no_update, "Never", "Initializing..."
-   
-   now = datetime.now().timestamp()
-   seconds_left = int(next_update - now)
-   countdown_text = f"{seconds_left // 60}m {seconds_left % 60}s"
-   last_update_text = last_update.strftime("%Y-%m-%d %H:%M:%S")
-   
-   df = pd.DataFrame(data['results'])
-   
-   mentions_fig = px.bar(
-       df.head(10),
-       x='ticker',
-       y='mentions',
-       title='Top 10 Most Mentioned Stocks',
-       labels={'ticker': 'Stock', 'mentions': 'Number of Mentions'},
-       color='mentions'
-   )
-   
-   scatter_fig = px.scatter(
-       df.head(20),
-       x='mentions',
-       y='upvotes',
-       title='Mentions vs Upvotes (Top 20 Stocks)',
-       labels={'mentions': 'Number of Mentions', 'upvotes': 'Number of Upvotes'},
-       text='ticker',
-       size='mentions',
-       color='upvotes'
-   )
-   
-   df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
-   change_fig = go.Figure()
-   change_fig.add_trace(go.Bar(
-       x=df.head(10)['ticker'],
-       y=df.head(10)['mention_change'],
-       name='24h Change in Mentions'
-   ))
-   change_fig.update_layout(
-       title='24h Change in Mentions (Top 10 Stocks)',
-       xaxis_title='Stock',
-       yaxis_title='Change in Mentions'
-   )
-   
-   return mentions_fig, scatter_fig, change_fig, last_update_text, countdown_text
+st.title('Stock Mentions Dashboard')
 
-server = app.server  # needed for deployment
+def get_data():
+    try:
+        data = st.session_state.api.get_mentions()
+        st.session_state.last_update = datetime.now()
+        st.session_state.next_update = st.session_state.last_update.timestamp() + 300
+        return data
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+        return None
 
-if __name__ == '__main__':
-   app.run_server(debug=False, host='0.0.0.0')
+if st.session_state.last_update is None or (datetime.now().timestamp() - st.session_state.last_update.timestamp()) > 300:
+    data = get_data()
+else:
+    data = None
+
+col1, col2 = st.columns(2)
+with col1:
+    if st.session_state.last_update:
+        st.write(f"Last update: {st.session_state.last_update.strftime('%Y-%m-%d %H:%M:%S')}")
+with col2:
+    if st.session_state.next_update:
+        seconds_left = int(st.session_state.next_update - datetime.now().timestamp())
+        if seconds_left > 0:
+            st.write(f"Next update in: {seconds_left // 60}m {seconds_left % 60}s")
+
+if data:
+    df = pd.DataFrame(data['results'])
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.plotly_chart(px.bar(
+            df.head(10),
+            x='ticker',
+            y='mentions',
+            title='Top 10 Most Mentioned Stocks'
+        ), use_container_width=True)
+    
+    with col2:
+        st.plotly_chart(px.scatter(
+            df.head(20),
+            x='mentions',
+            y='upvotes',
+            text='ticker',
+            title='Mentions vs Upvotes'
+        ), use_container_width=True)
+    
+    df['mention_change'] = df['mentions'].astype(float) - df['mentions_24h_ago'].astype(float)
+    st.plotly_chart(px.bar(
+        df.head(10),
+        x='ticker',
+        y='mention_change',
+        title='24h Change in Mentions'
+    ), use_container_width=True)
+
+time.sleep(1)
+st.experimental_rerun()
