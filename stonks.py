@@ -61,7 +61,7 @@ def update_data():
             st.session_state.update_counter += 1
             # Force a rerun only when new data is fetched
             time.sleep(1)  # Small delay to ensure smooth transition
-            st.experimental_rerun()
+            st.rerun()
     except Exception as e:
         st.error(f"Error updating data: {str(e)}")
 
