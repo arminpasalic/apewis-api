@@ -3,6 +3,7 @@ import plotly.express as px
 import requests
 from typing import Dict
 import pandas as pd
+import time
 
 class ApeWisdomAPI:
     # The base URL for the API endpoints
@@ -33,15 +34,43 @@ st.set_page_config(layout="wide")
 # Initialize API client
 api = ApeWisdomAPI()
 
-# Fetch stock mentions data
+# Title
 st.title('Stock Mentions Dashboard')
 
+# Timer fragment
+with st.fragment(key="timer_fragment"):
+    # Initialize start time if not already in session state
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = time.time()
+    
+    # Calculate elapsed time
+    elapsed_time = time.time() - st.session_state.start_time
+    
+    # Reset start time and fetch new data if 5 minutes have passed
+    if elapsed_time >= 300:  # 300 seconds = 5 minutes
+        st.session_state.start_time = time.time()
+        st.session_state.data = None  # Force data refetch
+    
+    # Display remaining time until next refresh
+    remaining_time = max(0, 300 - elapsed_time)
+    minutes = int(remaining_time // 60)
+    seconds = int(remaining_time % 60)
+    
+    # Display timer
+    st.markdown(f"### Next update in: {minutes:02d}:{seconds:02d}")
+    
+    # Sleep for 1 second and rerun the fragment
+    time.sleep(1)
+    st.rerun(scope="fragment")
+
+# Main content
 try:
-    # Fetch stock mentions data
-    data = api.get_mentions()
+    # Fetch stock mentions data if not already fetched or expired
+    if 'data' not in st.session_state or st.session_state.data is None:
+        st.session_state.data = api.get_mentions()
     
     # Create DataFrame from API results
-    df = pd.DataFrame(data['results'])
+    df = pd.DataFrame(st.session_state.data['results'])
     
     # Create two-column layout for first two visualizations
     col1, col2 = st.columns(2)
