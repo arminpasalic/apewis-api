@@ -180,6 +180,7 @@ def main():
             .title {
                 font-family: Arial, Helvetica, sans-serif;
                 font-weight: bold;
+                font-size: 36px;
                 margin-bottom: 30px;
                 color: #ffffff;
             }
@@ -209,12 +210,9 @@ def main():
 
     # Initialize API client
     api = ApeWisdomAPI()
-
-    # Title size selection in sidebar
-    title_size = st.sidebar.slider("Dashboard Title Size", min_value=24, max_value=48, value=36)
     
-    # Title with custom styling and adjustable size
-    st.markdown(f'<p class="title" style="font-size: {title_size}px;">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
+    # Title with fixed styling
+    st.markdown('<p class="title">Stock Mentions Dashboard</p>', unsafe_allow_html=True)
 
     # Filter selection
     filter_options = [
